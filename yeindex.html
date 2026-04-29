@@ -1,0 +1,1266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MoneyBaseStat</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        g: { 500:'#00D54B', 600:'#00B840', 400:'#33DD70', glow:'rgba(0,213,75,0.25)' },
+        ink: { 950:'#060608', 900:'#0E0F12', 800:'#181920', 700:'#22242C', 600:'#2E3040', 400:'#6B7080', 300:'#9EA5B4', 200:'#C8CEDC', 100:'#EEF0F5', 50:'#F7F8FC' }
+      },
+      fontFamily: { display:['Syne','sans-serif'], body:['DM Sans','sans-serif'], mono:['DM Mono','monospace'] },
+      borderRadius: { '4xl':'2rem', '5xl':'2.5rem' },
+      boxShadow: {
+        'card': '0 2px 16px rgba(0,0,0,0.07), 0 1px 3px rgba(0,0,0,0.05)',
+        'card-hover': '0 8px 32px rgba(0,0,0,0.12)',
+        'green': '0 4px 20px rgba(0,213,75,0.35)',
+        'modal': '0 24px 80px rgba(0,0,0,0.18)',
+      }
+    }
+  }
+}
+</script>
+<style>
+/* ── global ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body { font-family: 'DM Sans', sans-serif; background: #F7F8FC; color: #0E0F12; overflow-x: hidden; -webkit-font-smoothing: antialiased; }
+
+/* ── CSS VARS (theme-switchable) ── */
+:root {
+  --bg: #F7F8FC;
+  --surface: #FFFFFF;
+  --surface2: #F0F2F7;
+  --border: #E8EAEF;
+  --text: #0E0F12;
+  --muted: #6B7080;
+  --subtle: #9EA5B4;
+  --accent: #00D54B;
+  --accent-dark: #00B840;
+  --accent-glow: rgba(0,213,75,0.25);
+  --card-shadow: 0 2px 16px rgba(0,0,0,0.07);
+}
+body.theme-dark {
+  --bg: #0E0F12;
+  --surface: #181920;
+  --surface2: #22242C;
+  --border: #2E3040;
+  --text: #EEF0F5;
+  --muted: #9EA5B4;
+  --subtle: #6B7080;
+  --card-shadow: 0 2px 20px rgba(0,0,0,0.4);
+}
+body { background: var(--bg); color: var(--text); }
+
+/* ── scroll bar ── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+
+/* ── SURFACES ── */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; box-shadow: var(--card-shadow); }
+.surface2 { background: var(--surface2); }
+.muted { color: var(--muted); }
+.subtle { color: var(--subtle); }
+
+/* ── ACCENT ── */
+.accent-bg { background: var(--accent); }
+.accent-text { color: var(--accent); }
+
+/* ── The Layout i think ── */
+/* DESKTOP: always show desktop layout on ≥ 1024px */
+/* VIEW MODE OVERRIDE: .force-mobile always shows mobile, .force-desktop always desktop */
+#desktop-layout { display: none; }
+#mobile-layout { display: block; }
+
+@media (min-width: 1024px) {
+  #desktop-layout { display: flex; }
+  #mobile-layout { display: none; }
+}
+body.force-mobile #desktop-layout { display: none !important; }
+body.force-mobile #mobile-layout { display: block !important; }
+body.force-desktop #desktop-layout { display: flex !important; }
+body.force-desktop #mobile-layout { display: none !important; }
+
+/* ── MOBILE PHONE WRAPPER ── */
+#mobile-layout {
+  min-height: 100vh;
+  background: var(--bg);
+}
+.mobile-wrap {
+  max-width: 430px;
+  margin: 0 auto;
+  min-height: 100vh;
+  background: var(--surface);
+  position: relative;
+  overflow: hidden;
+}
+
+/* ── MOBILE SCREENS ── */
+.m-screen {
+  position: absolute; inset: 0;
+  overflow-y: auto; overflow-x: hidden;
+  transition: transform 0.32s cubic-bezier(0.4,0,0.2,1), opacity 0.28s;
+  background: var(--surface);
+}
+.m-screen::-webkit-scrollbar { display: none; }
+.m-screen.off-left  { transform: translateX(-100%); opacity: 0; pointer-events: none; }
+.m-screen.off-right { transform: translateX( 100%); opacity: 0; pointer-events: none; }
+
+/* ── BOTTOM NAV ── */
+.bottom-nav {
+  position: sticky; bottom: 0; z-index: 50;
+  background: var(--surface); border-top: 1px solid var(--border);
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+.bnav-item { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 0; cursor: pointer; transition: color .18s; }
+.bnav-item.active { color: var(--accent); }
+.bnav-item:not(.active) { color: var(--subtle); }
+
+/* ── DEBIT CARD ── */
+.debit-card {
+  border-radius: 20px; position: relative; overflow: hidden;
+  aspect-ratio: 1.586/1; padding: 22px 24px;
+  display: flex; flex-direction: column; justify-content: space-between;
+  transition: transform .3s, box-shadow .3s;
+}
+.debit-card:hover { transform: translateY(-4px) rotate(0.5deg); box-shadow: 0 24px 60px rgba(0,0,0,0.22); }
+.debit-card::before {
+  content:''; position:absolute; top:-30%; right:-15%; width:70%; height:160%;
+  background: radial-gradient(ellipse, rgba(255,255,255,0.12) 0%, transparent 70%);
+}
+.debit-card::after {
+  content:''; position:absolute; bottom:-20%; left:-10%; width:50%; height:120%;
+  background: radial-gradient(ellipse, rgba(0,0,0,0.15) 0%, transparent 70%);
+}
+.card-theme-dark    { background: linear-gradient(135deg, #0A0A0A 0%, #1C1C1C 60%, #2A2A2A 100%); }
+.card-theme-green   { background: linear-gradient(135deg, #00A53B 0%, #00D54B 60%, #33E868 100%); }
+.card-theme-navy    { background: linear-gradient(135deg, #0D1B4B 0%, #1A3280 60%, #2244AA 100%); }
+.card-theme-purple  { background: linear-gradient(135deg, #2D0A6B 0%, #5420B5 60%, #7B3FE0 100%); }
+.card-theme-rose    { background: linear-gradient(135deg, #6B0A28 0%, #B52050 60%, #E0436A 100%); }
+
+/* ── KEYPAD ── */
+.kpad-btn {
+  width: 72px; height: 72px; border-radius: 50%; font-size: 22px; font-weight: 600;
+  background: var(--surface2); color: var(--text); border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .12s, transform .1s; font-family: 'DM Sans', sans-serif;
+}
+.kpad-btn:active { background: var(--border); transform: scale(0.92); }
+
+/* ── TOGGLE ── */
+.toggle {
+  appearance: none; width: 46px; height: 26px;
+  background: var(--border); border-radius: 99px; cursor: pointer;
+  transition: background .2s; position: relative; flex-shrink: 0;
+}
+.toggle:checked { background: var(--accent); }
+.toggle::after {
+  content:''; position:absolute; top:3px; left:3px; width:20px; height:20px;
+  border-radius:50%; background:white; transition:left .2s;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+}
+.toggle:checked::after { left: 23px; }
+
+/* ── MODAL ── */
+.modal-bg {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.45); backdrop-filter: blur(4px);
+  z-index: 9000; display: flex; align-items: flex-end; justify-content: center;
+  opacity: 0; pointer-events: none; transition: opacity .28s;
+}
+.modal-bg.open { opacity: 1; pointer-events: all; }
+.modal-sheet {
+  background: var(--surface); border-radius: 28px 28px 0 0;
+  width: 100%; max-width: 460px; padding: 28px 24px 44px;
+  transform: translateY(100%); transition: transform .36s cubic-bezier(0.4,0,0.2,1);
+  max-height: 92vh; overflow-y: auto; border-top: 1px solid var(--border);
+}
+.modal-sheet::-webkit-scrollbar { display: none; }
+.modal-bg.open .modal-sheet { transform: translateY(0); }
+
+/* ── TOAST ── */
+#toast {
+  position: fixed; top: 24px; left: 50%; transform: translateX(-50%) translateY(-100px);
+  background: var(--ink-900, #0E0F12); color: white;
+  padding: 12px 22px; border-radius: 50px; font-size: 14px; font-weight: 600;
+  z-index: 99999; transition: transform .38s cubic-bezier(0.34,1.4,0.64,1);
+  white-space: nowrap; pointer-events: none; font-family: 'DM Sans', sans-serif;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+}
+#toast.up { transform: translateX(-50%) translateY(0); }
+
+/* ── SUCCESS OVERLAY ── */
+#success-overlay {
+  position: fixed; inset: 0; z-index: 99998;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: var(--surface); opacity: 0; pointer-events: none;
+  transition: opacity .3s;
+}
+#success-overlay.show { opacity: 1; pointer-events: all; }
+.success-circle {
+  width: 96px; height: 96px; border-radius: 50%; background: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  animation: successPop .4s cubic-bezier(0.34,1.56,0.64,1);
+}
+@keyframes successPop { from { transform: scale(0.5); opacity:0; } to { transform: scale(1); opacity:1; } }
+
+/* ── ANIMATIONS ── */
+@keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+@keyframes shimmer { 0%,100% { opacity:.5; } 50% { opacity:1; } }
+.fade-up { animation: fadeUp .3s ease both; }
+.fade-up-1 { animation: fadeUp .3s .06s ease both; }
+.fade-up-2 { animation: fadeUp .3s .12s ease both; }
+.fade-up-3 { animation: fadeUp .3s .18s ease both; }
+
+/* ── DESKTOP SIDEBAR ── */
+#desktop-layout {
+  min-height: 100vh; background: var(--bg);
+}
+.d-sidebar {
+  width: 260px; flex-shrink: 0; background: var(--surface);
+  border-right: 1px solid var(--border); min-height: 100vh;
+  position: sticky; top: 0; height: 100vh; overflow-y: auto; padding: 28px 0;
+}
+.d-sidebar::-webkit-scrollbar { display: none; }
+.d-nav-item {
+  display: flex; align-items: center; gap: 12px; padding: 11px 24px;
+  cursor: pointer; transition: background .15s, color .15s; border-radius: 0;
+  font-weight: 600; font-size: 14px; color: var(--muted);
+}
+.d-nav-item.active { color: var(--text); background: var(--surface2); }
+.d-nav-item:hover:not(.active) { background: var(--surface2); color: var(--text); }
+.d-nav-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 16px; }
+.d-main { flex: 1; overflow-y: auto; padding: 36px 32px; }
+.d-main::-webkit-scrollbar { display: none; }
+.d-right { width: 300px; flex-shrink: 0; padding: 28px 20px; overflow-y: auto; border-left: 1px solid var(--border); }
+.d-right::-webkit-scrollbar { display: none; }
+
+/* ── BALANCE HERO ── */
+.balance-hero {
+  background: linear-gradient(150deg, #00D54B 0%, #00B840 50%, #009A34 100%);
+  border-radius: 24px; padding: 32px; position: relative; overflow: hidden;
+  color: white;
+}
+.balance-hero::before {
+  content:''; position:absolute; top:-40%; right:-20%; width:70%; height:180%;
+  background: radial-gradient(ellipse, rgba(255,255,255,0.15) 0%, transparent 65%);
+}
+.balance-hero::after {
+  content:''; position:absolute; bottom:-30%; left:-10%; width:55%; height:130%;
+  background: radial-gradient(ellipse, rgba(0,0,0,0.1) 0%, transparent 65%);
+}
+.balance-amount { font-family:'Syne',sans-serif; font-size:3.2rem; font-weight:800; letter-spacing:-2px; line-height:1; }
+@media(max-width:600px) { .balance-amount { font-size:2.6rem; } }
+
+/* ── TX LIST ITEM ── */
+.tx-row {
+  display: flex; align-items: center; gap: 14px;
+  padding: 13px 20px; transition: background .15s; cursor: pointer;
+}
+.tx-row:hover { background: var(--surface2); }
+.tx-avatar { width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px; }
+
+/* ── SEND FLOW ── */
+.send-step { display: none; }
+.send-step.active { display: block; }
+.contact-chip {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  cursor: pointer; flex-shrink: 0; transition: transform .15s;
+}
+.contact-chip:hover { transform: translateY(-2px); }
+.contact-chip.selected .chip-av { box-shadow: 0 0 0 3px var(--accent); }
+
+/* ── CARD VIEWER ── */
+.card-color-opt {
+  width: 32px; height: 32px; border-radius: 50%; cursor: pointer;
+  transition: transform .15s, box-shadow .15s; border: 2px solid transparent;
+}
+.card-color-opt.active { box-shadow: 0 0 0 3px var(--accent); transform: scale(1.1); }
+
+/* ── STAT BADGE ── */
+.stat-badge { border-radius: 12px; padding: 14px 16px; background: var(--surface2); }
+
+/* ─────────────────────────────────────────────────── */
+</style>
+</head>
+<body>
+
+<!-- ── TOAST ── -->
+<div id="toast"></div>
+
+<!-- ── SUCCESS OVERLAY ── -->
+<div id="success-overlay">
+  <div class="success-circle">
+    <svg width="44" height="44" viewBox="0 0 44 44" fill="none">
+      <path d="M10 22l9 9 15-16" stroke="white" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
+  <p class="mt-5 font-display font-bold text-xl" id="success-title">Sent!</p>
+  <p class="mt-2 text-sm" style="color:var(--muted)" id="success-sub"></p>
+</div>
+
+<!-- ═══════════════════════════════ MODALS ═══════════════════════════════ -->
+
+<!-- SEND MODAL -->
+<div id="send-modal" class="modal-bg" onclick="if(event.target===this)closeModal('send-modal')">
+  <div class="modal-sheet">
+    <div class="flex items-center justify-between mb-5">
+      <button onclick="closeModal('send-modal')" class="w-9 h-9 rounded-full flex items-center justify-center" style="background:var(--surface2)">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M1 1l10 10M11 1L1 11" stroke="var(--text)" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+      <h2 class="font-display font-bold text-lg">Send Money</h2>
+      <div class="w-9"></div>
+    </div>
+
+    <!-- STEP 1: Pick contact -->
+    <div id="send-step-1" class="send-step active">
+      <p class="text-sm mb-3" style="color:var(--muted)">Who are you sending to?</p>
+      <div class="relative mb-4">
+        <input id="contact-search" type="text" placeholder="Search name or $tag…" oninput="filterContacts()"
+          class="w-full px-4 py-3 rounded-2xl text-sm font-medium border outline-none focus:border-green-400"
+          style="background:var(--surface2);border-color:var(--border);color:var(--text)">
+      </div>
+      <div id="contacts-grid" class="flex gap-4 overflow-x-auto pb-2 mb-2" style="scrollbar-width:none;"></div>
+      <div id="contacts-list" class="space-y-1 mt-3"></div>
+      <button onclick="sendStep(2)" id="next-btn-1" disabled
+        class="w-full mt-5 py-4 rounded-2xl font-bold text-white text-sm transition-opacity"
+        style="background:var(--accent);">Continue</button>
+    </div>
+
+    <!-- STEP 2: Amount -->
+    <div id="send-step-2" class="send-step">
+      <div class="text-center mb-4">
+        <div class="text-xs font-semibold mb-1" style="color:var(--muted)">Sending to <span id="step2-to" class="font-bold" style="color:var(--text)"></span></div>
+        <div class="flex items-center justify-center" style="min-height:70px">
+          <span class="font-display font-black" style="font-size:3rem;letter-spacing:-2px">$</span>
+          <span id="s-amt-display" class="font-display font-black" style="font-size:3rem;letter-spacing:-2px">0</span>
+        </div>
+      </div>
+      <div class="grid grid-cols-3 gap-3 place-items-center mb-4">
+        <button class="kpad-btn" onclick="skp('1')">1</button>
+        <button class="kpad-btn" onclick="skp('2')">2</button>
+        <button class="kpad-btn" onclick="skp('3')">3</button>
+        <button class="kpad-btn" onclick="skp('4')">4</button>
+        <button class="kpad-btn" onclick="skp('5')">5</button>
+        <button class="kpad-btn" onclick="skp('6')">6</button>
+        <button class="kpad-btn" onclick="skp('7')">7</button>
+        <button class="kpad-btn" onclick="skp('8')">8</button>
+        <button class="kpad-btn" onclick="skp('9')">9</button>
+        <button class="kpad-btn" onclick="skp('.')">.</button>
+        <button class="kpad-btn" onclick="skp('0')">0</button>
+        <button class="kpad-btn" onclick="skp('⌫')">⌫</button>
+      </div>
+      <button onclick="sendStep(3)" class="w-full py-4 rounded-2xl font-bold text-white text-sm" style="background:var(--accent)">Next</button>
+      <button onclick="sendStep(1)" class="w-full mt-2 py-3 rounded-2xl font-semibold text-sm" style="color:var(--muted)">← Back</button>
+    </div>
+
+    <!-- STEP 3: Note + Confirm -->
+    <div id="send-step-3" class="send-step">
+      <div class="card p-4 mb-4 text-center">
+        <div class="text-xs font-semibold mb-1" style="color:var(--muted)">Sending</div>
+        <div class="font-display font-black text-3xl" id="confirm-amt" style="color:var(--accent)"></div>
+        <div class="text-sm font-semibold mt-1" id="confirm-to" style="color:var(--muted)"></div>
+      </div>
+      <input type="text" id="send-note" placeholder="What's it for? (optional)"
+        class="w-full px-4 py-3 rounded-2xl text-sm mb-4 border outline-none"
+        style="background:var(--surface2);border-color:var(--border);color:var(--text)">
+      <button onclick="executeSend()" class="w-full py-4 rounded-2xl font-bold text-white text-sm" style="background:var(--accent)">
+        Confirm & Send ↑
+      </button>
+      <button onclick="sendStep(2)" class="w-full mt-2 py-3 rounded-2xl font-semibold text-sm" style="color:var(--muted)">← Back</button>
+    </div>
+  </div>
+</div>
+
+<!-- REQUEST MODAL -->
+<div id="request-modal" class="modal-bg" onclick="if(event.target===this)closeModal('request-modal')">
+  <div class="modal-sheet">
+    <div class="flex items-center justify-between mb-5">
+      <button onclick="closeModal('request-modal')" class="w-9 h-9 rounded-full flex items-center justify-center" style="background:var(--surface2)">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M1 1l10 10M11 1L1 11" stroke="var(--text)" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+      <h2 class="font-display font-bold text-lg">Request Money</h2>
+      <div class="w-9"></div>
+    </div>
+    <div class="text-center mb-4" style="min-height:70px;display:flex;align-items:center;justify-content:center;">
+      <span class="font-display font-black" style="font-size:3rem;letter-spacing:-2px">$</span>
+      <span id="r-amt-display" class="font-display font-black" style="font-size:3rem;letter-spacing:-2px">0</span>
+    </div>
+    <div class="grid grid-cols-3 gap-3 place-items-center mb-4">
+      <button class="kpad-btn" onclick="rkp('1')">1</button>
+      <button class="kpad-btn" onclick="rkp('2')">2</button>
+      <button class="kpad-btn" onclick="rkp('3')">3</button>
+      <button class="kpad-btn" onclick="rkp('4')">4</button>
+      <button class="kpad-btn" onclick="rkp('5')">5</button>
+      <button class="kpad-btn" onclick="rkp('6')">6</button>
+      <button class="kpad-btn" onclick="rkp('7')">7</button>
+      <button class="kpad-btn" onclick="rkp('8')">8</button>
+      <button class="kpad-btn" onclick="rkp('9')">9</button>
+      <button class="kpad-btn" onclick="rkp('.')">.</button>
+      <button class="kpad-btn" onclick="rkp('0')">0</button>
+      <button class="kpad-btn" onclick="rkp('⌫')">⌫</button>
+    </div>
+    <input type="text" id="req-note" placeholder="Add a note…"
+      class="w-full px-4 py-3 rounded-2xl text-sm mb-4 border outline-none"
+      style="background:var(--surface2);border-color:var(--border);color:var(--text)">
+    <button onclick="executeRequest()" class="w-full py-4 rounded-2xl font-bold text-white text-sm" style="background:var(--ink-900,#0E0F12);color:white">
+      Send Request ↓
+    </button>
+  </div>
+</div>
+
+<!-- CARD MODAL -->
+<div id="card-modal" class="modal-bg" onclick="if(event.target===this)closeModal('card-modal')">
+  <div class="modal-sheet" style="max-height:95vh">
+    <div class="flex items-center justify-between mb-5">
+      <button onclick="closeModal('card-modal')" class="w-9 h-9 rounded-full flex items-center justify-center" style="background:var(--surface2)">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M1 1l10 10M11 1L1 11" stroke="var(--text)" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+      <h2 class="font-display font-bold text-lg">My Card</h2>
+      <div class="w-9"></div>
+    </div>
+
+    <!-- Card preview -->
+    <div id="card-preview" class="debit-card card-theme-dark mb-5" style="max-width:360px;margin:0 auto 20px;">
+      <div class="flex justify-between items-center relative z-10">
+        <span class="font-display font-black text-white text-lg tracking-wide">MBS</span>
+        <div class="w-9 h-9 rounded-full border-2 border-white" style="opacity:0.3"></div>
+      </div>
+      <div class="relative z-10">
+        <div class="text-white font-mono text-sm tracking-widest mb-1" style="opacity:0.65" id="card-number-display">4829  3847  2910  7723</div>
+        <div class="flex justify-between items-end">
+          <div>
+            <div class="text-white text-xs font-semibold" style="opacity:0.5;letter-spacing:.5px">CARD HOLDER</div>
+            <div class="text-white text-sm font-bold" id="card-name-display">ALEX CARTER</div>
+          </div>
+          <div class="text-right">
+            <div class="text-white text-xs" style="opacity:0.5">EXPIRES</div>
+            <div class="text-white text-sm font-bold" id="card-exp-display">08/28</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card info -->
+    <div class="grid grid-cols-3 gap-3 mb-5">
+      <div class="stat-badge text-center">
+        <div class="text-xs font-semibold mb-1" style="color:var(--muted)">Card #</div>
+        <div class="font-mono text-xs font-semibold" id="card-num-short">•••• 7723</div>
+      </div>
+      <div class="stat-badge text-center">
+        <div class="text-xs font-semibold mb-1" style="color:var(--muted)">CVV</div>
+        <div class="font-mono text-sm font-bold" id="card-cvv-display">•••</div>
+        <button onclick="toggleCVV()" class="text-xs mt-1" style="color:var(--accent)">Show</button>
+      </div>
+      <div class="stat-badge text-center">
+        <div class="text-xs font-semibold mb-1" style="color:var(--muted)">Status</div>
+        <div class="text-xs font-bold" style="color:var(--accent)">● Active</div>
+      </div>
+    </div>
+
+    <!-- Card color -->
+    <div class="mb-4">
+      <p class="text-sm font-bold mb-3">Card Theme</p>
+      <div class="flex gap-3">
+        <button onclick="setCardTheme('dark')" class="card-color-opt active" style="background:linear-gradient(135deg,#222,#444)" data-theme="dark"></button>
+        <button onclick="setCardTheme('green')" class="card-color-opt" style="background:linear-gradient(135deg,#00A53B,#00D54B)" data-theme="green"></button>
+        <button onclick="setCardTheme('navy')" class="card-color-opt" style="background:linear-gradient(135deg,#0D1B4B,#2244AA)" data-theme="navy"></button>
+        <button onclick="setCardTheme('purple')" class="card-color-opt" style="background:linear-gradient(135deg,#2D0A6B,#7B3FE0)" data-theme="purple"></button>
+        <button onclick="setCardTheme('rose')" class="card-color-opt" style="background:linear-gradient(135deg,#6B0A28,#E0436A)" data-theme="rose"></button>
+      </div>
+    </div>
+
+    <!-- Edit name -->
+    <div class="mb-3">
+      <p class="text-sm font-bold mb-2">Cardholder Name</p>
+      <div class="flex gap-2">
+        <input type="text" id="card-name-input" value="ALEX CARTER"
+          class="flex-1 px-4 py-3 rounded-2xl text-sm border outline-none font-mono uppercase"
+          style="background:var(--surface2);border-color:var(--border);color:var(--text)">
+        <button onclick="applyCardName()" class="px-5 py-3 rounded-2xl font-bold text-sm text-white" style="background:var(--accent)">Save</button>
+      </div>
+    </div>
+    <p class="text-xs text-center mt-3" style="color:var(--subtle)">For demo purposes only. All card details are fake.</p>
+  </div>
+</div>
+
+<!-- BALANCE EDIT MODAL -->
+<div id="bal-modal" class="modal-bg" onclick="if(event.target===this)closeModal('bal-modal')">
+  <div class="modal-sheet">
+    <div class="flex items-center justify-between mb-4">
+      <button onclick="closeModal('bal-modal')" class="w-9 h-9 rounded-full flex items-center justify-center" style="background:var(--surface2)">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M1 1l10 10M11 1L1 11" stroke="var(--text)" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+      <div class="text-center">
+        <span class="text-xs font-mono px-3 py-1 rounded-full" style="background:rgba(0,213,75,0.12);color:var(--accent)">DEV MODE</span>
+        <h2 class="font-display font-bold text-base mt-1">Set Balance</h2>
+      </div>
+      <div class="w-9"></div>
+    </div>
+    <div class="text-center mb-4" style="min-height:70px;display:flex;align-items:center;justify-content:center;">
+      <span class="font-display font-black" style="font-size:3rem;letter-spacing:-2px">$</span>
+      <span id="b-amt-display" class="font-display font-black" style="font-size:3rem;letter-spacing:-2px">0</span>
+    </div>
+    <div class="grid grid-cols-3 gap-3 place-items-center mb-4">
+      <button class="kpad-btn" onclick="bkp('1')">1</button>
+      <button class="kpad-btn" onclick="bkp('2')">2</button>
+      <button class="kpad-btn" onclick="bkp('3')">3</button>
+      <button class="kpad-btn" onclick="bkp('4')">4</button>
+      <button class="kpad-btn" onclick="bkp('5')">5</button>
+      <button class="kpad-btn" onclick="bkp('6')">6</button>
+      <button class="kpad-btn" onclick="bkp('7')">7</button>
+      <button class="kpad-btn" onclick="bkp('8')">8</button>
+      <button class="kpad-btn" onclick="bkp('9')">9</button>
+      <button class="kpad-btn" onclick="bkp('.')">.</button>
+      <button class="kpad-btn" onclick="bkp('0')">0</button>
+      <button class="kpad-btn" onclick="bkp('⌫')">⌫</button>
+    </div>
+    <button onclick="applyBalance()" class="w-full py-4 rounded-2xl font-bold text-white text-sm" style="background:var(--accent)">Apply Balance</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════ DESKTOP LAYOUT ═════════════════════ -->
+<div id="desktop-layout" class="flex">
+
+  <!-- SIDEBAR -->
+  <aside class="d-sidebar">
+    <!-- Logo -->
+    <div class="px-6 mb-8">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-xl flex items-center justify-center" style="background:var(--accent)">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 2l2.5 4.5H16l-3.5 3.2 1.4 5.3L9 12.2l-4.9 2.8 1.4-5.3L2 6.5h4.5L9 2z" fill="white"/></svg>
+        </div>
+        <div>
+          <div class="font-display font-black text-base" style="color:var(--text)">MoneyBase</div>
+          <div class="text-xs font-bold tracking-widest uppercase" style="color:var(--accent)">Stat</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Nav items -->
+    <div id="d-nav">
+      <div class="d-nav-item active" onclick="dNav('home',this)">
+        <div class="d-nav-icon" style="background:rgba(0,213,75,0.12)">🏠</div> Home
+      </div>
+      <div class="d-nav-item" onclick="dNav('activity',this)">
+        <div class="d-nav-icon" style="background:var(--surface2)">📋</div> Activity
+      </div>
+      <div class="d-nav-item" onclick="openModal('send-modal');resetSend()">
+        <div class="d-nav-icon" style="background:var(--surface2)">↑</div> Send
+      </div>
+      <div class="d-nav-item" onclick="openModal('request-modal')">
+        <div class="d-nav-icon" style="background:var(--surface2)">↓</div> Request
+      </div>
+      <div class="d-nav-item" onclick="openModal('card-modal')">
+        <div class="d-nav-icon" style="background:var(--surface2)">💳</div> My Card
+      </div>
+      <div class="d-nav-item" onclick="dNav('investing',this)">
+        <div class="d-nav-icon" style="background:var(--surface2)">📈</div> Investing
+      </div>
+      <div class="d-nav-item" onclick="dNav('settings',this)">
+        <div class="d-nav-icon" style="background:var(--surface2)">⚙️</div> Settings
+      </div>
+    </div>
+
+    <!-- Profile bottom -->
+    <div class="mt-auto px-5 pt-6 border-t" style="border-color:var(--border)">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm text-white" style="background:var(--accent)">AC</div>
+        <div>
+          <div class="font-bold text-sm">Alex Carter</div>
+          <div class="text-xs font-mono" style="color:var(--muted)">$alexcarter</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="d-main flex-1">
+    <!-- HOME PAGE -->
+    <div id="d-page-home" class="d-page">
+      <div class="mb-6 fade-up">
+        <h1 class="font-display font-black text-2xl">Good afternoon, Alex 👋</h1>
+        <p class="text-sm mt-1" style="color:var(--muted)">Here's your MoneyBaseStat overview</p>
+      </div>
+
+      <!-- Balance hero -->
+      <div class="balance-hero mb-6 fade-up-1 cursor-pointer" id="d-balance-hero" onclick="onBalanceTap()">
+        <div class="flex items-start justify-between relative z-10 mb-4">
+          <div>
+            <div class="text-white text-sm font-semibold mb-1" style="opacity:.8">Total Balance</div>
+            <div class="balance-amount" id="d-balance-display">$8,742.56</div>
+          </div>
+          <div class="w-12 h-12 rounded-xl flex items-center justify-center" style="background:rgba(255,255,255,0.15)">
+            <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M11 2L2 8v12h7v-5h4v5h7V8L11 2z" fill="white"/></svg>
+          </div>
+        </div>
+        <div class="relative z-10 flex gap-3">
+          <button onclick="event.stopPropagation();openModal('send-modal');resetSend()" class="px-5 py-2.5 rounded-xl font-bold text-sm" style="background:rgba(255,255,255,0.2);color:white">↑ Send</button>
+          <button onclick="event.stopPropagation();openModal('request-modal')" class="px-5 py-2.5 rounded-xl font-bold text-sm" style="background:rgba(0,0,0,0.15);color:white">↓ Request</button>
+          <div id="d-edit-badge" class="hidden px-3 py-2.5 rounded-xl text-xs font-bold" style="background:rgba(0,0,0,0.2);color:white">✏️ Edit balance</div>
+        </div>
+      </div>
+
+      <!-- Stats row -->
+      <div class="grid grid-cols-3 gap-4 mb-6 fade-up-2">
+        <div class="card p-5">
+          <div class="text-xs font-bold uppercase tracking-wider mb-1" style="color:var(--muted)">Sent · Month</div>
+          <div class="font-display font-black text-2xl">$843.20</div>
+          <div class="text-xs font-semibold mt-1" style="color:#EF4444">↑ 12% vs last</div>
+        </div>
+        <div class="card p-5">
+          <div class="text-xs font-bold uppercase tracking-wider mb-1" style="color:var(--muted)">Received</div>
+          <div class="font-display font-black text-2xl">$2,100.00</div>
+          <div class="text-xs font-semibold mt-1" style="color:var(--accent)">↑ 8% vs last</div>
+        </div>
+        <div class="card p-5">
+          <div class="text-xs font-bold uppercase tracking-wider mb-1" style="color:var(--muted)">Investing</div>
+          <div class="font-display font-black text-2xl">$1,204.88</div>
+          <div class="text-xs font-semibold mt-1" style="color:var(--accent)">↑ +3.24% today</div>
+        </div>
+      </div>
+
+      <!-- Recent Transactions -->
+      <div class="card overflow-hidden fade-up-3">
+        <div class="flex items-center justify-between px-6 py-4 border-b" style="border-color:var(--border)">
+          <h2 class="font-display font-bold">Recent Activity</h2>
+          <button onclick="dNav('activity',null)" class="text-sm font-bold" style="color:var(--accent)">See all</button>
+        </div>
+        <div id="d-tx-list"></div>
+      </div>
+    </div>
+
+    <!-- ACTIVITY PAGE -->
+    <div id="d-page-activity" class="d-page hidden">
+      <div class="flex items-center justify-between mb-6">
+        <h1 class="font-display font-black text-2xl">Activity</h1>
+        <div class="flex gap-2">
+          <button class="px-4 py-2 rounded-xl text-sm font-bold text-white" style="background:var(--accent)">All</button>
+          <button class="px-4 py-2 rounded-xl text-sm font-semibold" style="background:var(--surface2);color:var(--muted)">Sent</button>
+          <button class="px-4 py-2 rounded-xl text-sm font-semibold" style="background:var(--surface2);color:var(--muted)">Received</button>
+        </div>
+      </div>
+      <div class="card overflow-hidden">
+        <div id="d-all-tx-list"></div>
+      </div>
+    </div>
+
+    <!-- INVESTING PAGE -->
+    <div id="d-page-investing" class="d-page hidden">
+      <h1 class="font-display font-black text-2xl mb-6">Investing</h1>
+      <div class="card p-6 mb-4">
+        <div class="text-sm font-semibold mb-1" style="color:var(--muted)">Portfolio Value</div>
+        <div class="font-display font-black text-4xl mb-1">$1,204.88</div>
+        <div class="text-sm font-semibold" style="color:var(--accent)">▲ $37.84 (3.24%) today</div>
+        <svg class="mt-5 w-full" height="100" viewBox="0 0 400 100">
+          <defs><linearGradient id="pg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#00D54B" stop-opacity=".3"/><stop offset="100%" stop-color="#00D54B" stop-opacity="0"/></linearGradient></defs>
+          <path d="M0,90 L40,78 L80,66 L120,60 L150,65 L190,42 L240,34 L290,22 L340,14 L400,6 L400,100 L0,100 Z" fill="url(#pg)"/>
+          <path d="M0,90 L40,78 L80,66 L120,60 L150,65 L190,42 L240,34 L290,22 L340,14 L400,6" stroke="#00D54B" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div class="card p-5 flex items-center gap-4">
+          <div class="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">SPY</div>
+          <div class="flex-1"><div class="font-bold text-sm">S&P 500</div><div class="text-xs" style="color:var(--muted)">2 shares</div></div>
+          <div class="text-right"><div class="font-black">$887.22</div><div class="text-xs font-semibold" style="color:var(--accent)">+$24.10</div></div>
+        </div>
+        <div class="card p-5 flex items-center gap-4">
+          <div class="w-12 h-12 rounded-full flex items-center justify-center font-bold flex-shrink-0" style="background:#1A1A2E;color:var(--accent)">₿</div>
+          <div class="flex-1"><div class="font-bold text-sm">Bitcoin</div><div class="text-xs" style="color:var(--muted)">0.00318 BTC</div></div>
+          <div class="text-right"><div class="font-black">$317.66</div><div class="text-xs font-semibold" style="color:var(--accent)">+$13.74</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SETTINGS PAGE -->
+    <div id="d-page-settings" class="d-page hidden">
+      <h1 class="font-display font-black text-2xl mb-6">Settings</h1>
+      <div id="settings-content"></div>
+    </div>
+  </main>
+
+  <!-- RIGHT PANEL -->
+  <aside class="d-right hidden xl:block">
+    <!-- Contacts -->
+    <div class="card p-5 mb-4">
+      <p class="text-xs font-bold uppercase tracking-wider mb-4" style="color:var(--muted)">Frequent</p>
+      <div id="d-contacts" class="space-y-3"></div>
+    </div>
+    <!-- Bitcoin widget -->
+    <div class="rounded-3xl p-5 text-white" style="background:#0E0F12">
+      <div class="flex items-center justify-between mb-2">
+        <span class="font-bold text-sm">Bitcoin</span>
+        <span class="text-xs font-bold px-2 py-0.5 rounded-full" style="background:rgba(0,213,75,.2);color:var(--accent)">+2.4%</span>
+      </div>
+      <div class="font-display font-black text-2xl mb-0.5">$97,422</div>
+      <div class="text-xs mb-3" style="color:#6B7080">1 BTC · Live</div>
+      <svg width="100%" height="44" viewBox="0 0 200 44">
+        <defs><linearGradient id="bg2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#00D54B" stop-opacity=".35"/><stop offset="100%" stop-color="#00D54B" stop-opacity="0"/></linearGradient></defs>
+        <path d="M0,36 L25,30 L50,24 L75,26 L100,14 L130,10 L160,5 L200,2 L200,44 L0,44 Z" fill="url(#bg2)"/>
+        <path d="M0,36 L25,30 L50,24 L75,26 L100,14 L130,10 L160,5 L200,2" stroke="#00D54B" stroke-width="2" fill="none" stroke-linecap="round"/>
+      </svg>
+      <button class="w-full mt-3 py-2.5 rounded-xl font-bold text-sm text-black" style="background:var(--accent)">Buy BTC</button>
+    </div>
+  </aside>
+</div>
+
+<!-- ═══════════════════════════════ MOBILE LAYOUT ═══════════════════════ -->
+<div id="mobile-layout">
+  <div class="mobile-wrap">
+
+    <!-- HOME SCREEN -->
+    <div class="m-screen" id="m-home" style="min-height:100vh;">
+      <!-- Green header -->
+      <div style="background:linear-gradient(150deg,#00D54B 0%,#009A34 100%);padding:48px 20px 28px;position:relative;overflow:hidden;">
+        <div style="position:absolute;top:-30%;right:-20%;width:60%;height:160%;background:radial-gradient(ellipse,rgba(255,255,255,0.12) 0%,transparent 65%);"></div>
+        <div class="flex items-center justify-between mb-5">
+          <div class="w-9 h-9 rounded-xl flex items-center justify-center" style="background:rgba(255,255,255,0.2);">
+            <span class="font-display font-black text-white text-sm">M</span>
+          </div>
+          <div class="font-display font-black text-white text-base tracking-tight">MoneyBaseStat</div>
+          <div onclick="mNav('settings')" class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-white text-sm cursor-pointer" style="background:rgba(0,0,0,0.2)">AC</div>
+        </div>
+        <!-- Balance -->
+        <div class="text-center relative z-10">
+          <div class="text-white text-sm font-semibold mb-1" style="opacity:.8">Cash Balance</div>
+          <div class="balance-amount text-white cursor-pointer" id="m-balance-display" onclick="onBalanceTap()">$8,742.56</div>
+          <div class="text-white text-xs mt-1.5 font-semibold" id="m-edit-hint" style="opacity:.65"></div>
+        </div>
+      </div>
+
+      <!-- Action row -->
+      <div class="px-5 py-5 grid grid-cols-4 gap-2" style="border-bottom:1px solid var(--border)">
+        <div class="flex flex-col items-center gap-2 cursor-pointer" onclick="openModal('send-modal');resetSend()" style="transition:transform .15s" onmousedown="this.style.transform='scale(0.9)'" onmouseup="this.style.transform=''">
+          <div class="w-14 h-14 rounded-full flex items-center justify-center text-xl text-white font-bold" style="background:var(--accent)">↑</div>
+          <span class="text-xs font-bold" style="color:var(--text)">Send</span>
+        </div>
+        <div class="flex flex-col items-center gap-2 cursor-pointer" onclick="openModal('request-modal')">
+          <div class="w-14 h-14 rounded-full flex items-center justify-center text-xl text-white" style="background:#0E0F12">↓</div>
+          <span class="text-xs font-bold" style="color:var(--text)">Request</span>
+        </div>
+        <div class="flex flex-col items-center gap-2 cursor-pointer" onclick="openModal('card-modal')">
+          <div class="w-14 h-14 rounded-full flex items-center justify-center text-xl" style="background:var(--surface2)">💳</div>
+          <span class="text-xs font-bold" style="color:var(--text)">Card</span>
+        </div>
+        <div class="flex flex-col items-center gap-2 cursor-pointer" onclick="mNav('investing')">
+          <div class="w-14 h-14 rounded-full flex items-center justify-center text-xl" style="background:var(--surface2)">📈</div>
+          <span class="text-xs font-bold" style="color:var(--text)">Invest</span>
+        </div>
+      </div>
+
+      <!-- Recent -->
+      <div class="px-5 pt-4 pb-1 flex items-center justify-between">
+        <span class="font-display font-bold text-sm">Recent</span>
+        <button onclick="mNav('activity')" class="text-xs font-bold" style="color:var(--accent)">See all →</button>
+      </div>
+      <div id="m-tx-preview"></div>
+
+      <!-- BTC -->
+      <div class="mx-5 my-3 rounded-2xl p-4 flex items-center justify-between" style="background:#0E0F12">
+        <div><div class="text-white font-bold text-sm">Bitcoin</div><div class="font-display font-black text-white text-lg">$97,422 <span class="text-xs font-semibold" style="color:var(--accent)">+2.4%</span></div></div>
+        <button class="py-2 px-4 rounded-xl font-bold text-black text-xs" style="background:var(--accent)">Buy</button>
+      </div>
+
+      <div style="height:80px"></div>
+      <!-- Bottom nav -->
+      <div class="bottom-nav">
+        <div class="grid grid-cols-5 px-2">
+          <div class="bnav-item active" onclick="mNav('home')">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2L2 8v10h6v-5h4v5h6V8L10 2z"/></svg>
+            <span class="text-xs font-semibold">Home</span>
+          </div>
+          <div class="bnav-item" onclick="mNav('activity')">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10" cy="10" r="8"/><path d="M10 6v4l2.5 2.5"/></svg>
+            <span class="text-xs font-semibold">Activity</span>
+          </div>
+          <div class="bnav-item" onclick="openModal('send-modal');resetSend()">
+            <div class="w-11 h-11 rounded-full flex items-center justify-center font-black text-black text-xl -mt-5 shadow-green" style="background:var(--accent)">$</div>
+            <span class="text-xs font-semibold mt-1">Pay</span>
+          </div>
+          <div class="bnav-item" onclick="mNav('investing')">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="2,16 7,11 12,13 18,5"/><polyline points="14,5 18,5 18,9"/></svg>
+            <span class="text-xs font-semibold">Invest</span>
+          </div>
+          <div class="bnav-item" onclick="mNav('settings')">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><circle cx="10" cy="7" r="3"/><path d="M10 12c-3.5 0-6 1.8-6 3.5V17h12v-1.5c0-1.7-2.5-3.5-6-3.5z"/></svg>
+            <span class="text-xs font-semibold">Profile</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ACTIVITY SCREEN -->
+    <div class="m-screen off-right" id="m-activity" style="min-height:100vh;">
+      <div style="position:sticky;top:0;z-index:10;background:var(--surface);border-bottom:1px solid var(--border);padding:48px 20px 14px;">
+        <div class="flex items-center gap-3">
+          <button onclick="mNav('home')" class="w-9 h-9 rounded-full flex items-center justify-center" style="background:var(--surface2)">
+            <svg width="8" height="14" viewBox="0 0 8 14" fill="none"><path d="M7 1L1 7l6 6" stroke="var(--text)" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>
+          <h1 class="font-display font-black text-lg">Activity</h1>
+        </div>
+        <div class="flex gap-2 mt-3">
+          <button class="px-4 py-1.5 rounded-full text-xs font-bold text-white" style="background:var(--accent)">All</button>
+          <button class="px-4 py-1.5 rounded-full text-xs font-semibold" style="background:var(--surface2);color:var(--muted)">Sent</button>
+          <button class="px-4 py-1.5 rounded-full text-xs font-semibold" style="background:var(--surface2);color:var(--muted)">Received</button>
+        </div>
+      </div>
+      <div id="m-all-tx"></div>
+      <div style="height:80px"></div>
+      <div class="bottom-nav">
+        <div class="grid grid-cols-5 px-2">
+          <div class="bnav-item" onclick="mNav('home')"><svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2L2 8v10h6v-5h4v5h6V8L10 2z"/></svg><span class="text-xs font-semibold">Home</span></div>
+          <div class="bnav-item active" onclick="mNav('activity')"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10" cy="10" r="8"/><path d="M10 6v4l2.5 2.5"/></svg><span class="text-xs font-semibold">Activity</span></div>
+          <div class="bnav-item" onclick="openModal('send-modal');resetSend()"><div class="w-11 h-11 rounded-full flex items-center justify-center font-black text-black text-xl -mt-5 shadow-green" style="background:var(--accent)">$</div><span class="text-xs font-semibold mt-1">Pay</span></div>
+          <div class="bnav-item" onclick="mNav('investing')"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="2,16 7,11 12,13 18,5"/><polyline points="14,5 18,5 18,9"/></svg><span class="text-xs font-semibold">Invest</span></div>
+          <div class="bnav-item" onclick="mNav('settings')"><svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><circle cx="10" cy="7" r="3"/><path d="M10 12c-3.5 0-6 1.8-6 3.5V17h12v-1.5c0-1.7-2.5-3.5-6-3.5z"/></svg><span class="text-xs font-semibold">Profile</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- INVESTING SCREEN -->
+    <div class="m-screen off-right" id="m-investing" style="min-height:100vh;">
+      <div style="position:sticky;top:0;z-index:10;background:var(--surface);border-bottom:1px solid var(--border);padding:48px 20px 14px;">
+        <div class="flex items-center gap-3">
+          <button onclick="mNav('home')" class="w-9 h-9 rounded-full flex items-center justify-center" style="background:var(--surface2)"><svg width="8" height="14" viewBox="0 0 8 14" fill="none"><path d="M7 1L1 7l6 6" stroke="var(--text)" stroke-width="2" stroke-linecap="round"/></svg></button>
+          <h1 class="font-display font-black text-lg">Investing</h1>
+        </div>
+      </div>
+      <div class="px-5 py-5">
+        <div class="text-sm font-semibold mb-1" style="color:var(--muted)">Portfolio Value</div>
+        <div class="font-display font-black text-4xl mb-1">$1,204.88</div>
+        <div class="text-sm font-semibold mb-4" style="color:var(--accent)">▲ $37.84 (3.24%) today</div>
+        <svg width="100%" height="100" viewBox="0 0 300 100">
+          <defs><linearGradient id="mg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#00D54B" stop-opacity=".3"/><stop offset="100%" stop-color="#00D54B" stop-opacity="0"/></linearGradient></defs>
+          <path d="M0,90 L40,78 L80,66 L110,60 L140,65 L180,42 L220,28 L270,16 L300,6 L300,100 L0,100 Z" fill="url(#mg)"/>
+          <path d="M0,90 L40,78 L80,66 L110,60 L140,65 L180,42 L220,28 L270,16 L300,6" stroke="#00D54B" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        </svg>
+        <div class="flex justify-between text-xs mt-1 mb-4" style="color:var(--muted)"><span>Jan</span><span>Mar</span><span>May</span><span>Jul</span><span>Now</span></div>
+        <div class="space-y-3">
+          <div class="card p-4 flex items-center gap-3">
+            <div class="w-11 h-11 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">SPY</div>
+            <div class="flex-1"><div class="font-bold text-sm">S&P 500</div><div class="text-xs" style="color:var(--muted)">2 shares</div></div>
+            <div class="text-right"><div class="font-black text-sm">$887.22</div><div class="text-xs font-semibold" style="color:var(--accent)">+$24.10</div></div>
+          </div>
+          <div class="card p-4 flex items-center gap-3">
+            <div class="w-11 h-11 rounded-full flex items-center justify-center font-bold flex-shrink-0" style="background:#0E0F12;color:var(--accent)">₿</div>
+            <div class="flex-1"><div class="font-bold text-sm">Bitcoin</div><div class="text-xs" style="color:var(--muted)">0.00318 BTC</div></div>
+            <div class="text-right"><div class="font-black text-sm">$317.66</div><div class="text-xs font-semibold" style="color:var(--accent)">+$13.74</div></div>
+          </div>
+        </div>
+      </div>
+      <div style="height:80px"></div>
+      <div class="bottom-nav">
+        <div class="grid grid-cols-5 px-2">
+          <div class="bnav-item" onclick="mNav('home')"><svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2L2 8v10h6v-5h4v5h6V8L10 2z"/></svg><span class="text-xs font-semibold">Home</span></div>
+          <div class="bnav-item" onclick="mNav('activity')"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10" cy="10" r="8"/><path d="M10 6v4l2.5 2.5"/></svg><span class="text-xs font-semibold">Activity</span></div>
+          <div class="bnav-item" onclick="openModal('send-modal');resetSend()"><div class="w-11 h-11 rounded-full flex items-center justify-center font-black text-black text-xl -mt-5" style="background:var(--accent)">$</div><span class="text-xs font-semibold mt-1">Pay</span></div>
+          <div class="bnav-item active" onclick="mNav('investing')"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="2,16 7,11 12,13 18,5"/><polyline points="14,5 18,5 18,9"/></svg><span class="text-xs font-semibold">Invest</span></div>
+          <div class="bnav-item" onclick="mNav('settings')"><svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><circle cx="10" cy="7" r="3"/><path d="M10 12c-3.5 0-6 1.8-6 3.5V17h12v-1.5c0-1.7-2.5-3.5-6-3.5z"/></svg><span class="text-xs font-semibold">Profile</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SETTINGS SCREEN -->
+    <div class="m-screen off-right" id="m-settings" style="min-height:100vh;">
+      <div style="position:sticky;top:0;z-index:10;background:var(--surface);border-bottom:1px solid var(--border);padding:48px 20px 14px;">
+        <div class="flex items-center gap-3">
+          <button onclick="mNav('home')" class="w-9 h-9 rounded-full flex items-center justify-center" style="background:var(--surface2)"><svg width="8" height="14" viewBox="0 0 8 14" fill="none"><path d="M7 1L1 7l6 6" stroke="var(--text)" stroke-width="2" stroke-linecap="round"/></svg></button>
+          <h1 class="font-display font-black text-lg">Settings</h1>
+        </div>
+      </div>
+      <div class="p-5" id="m-settings-content"></div>
+      <div style="height:80px"></div>
+      <div class="bottom-nav">
+        <div class="grid grid-cols-5 px-2">
+          <div class="bnav-item" onclick="mNav('home')"><svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2L2 8v10h6v-5h4v5h6V8L10 2z"/></svg><span class="text-xs font-semibold">Home</span></div>
+          <div class="bnav-item" onclick="mNav('activity')"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10" cy="10" r="8"/><path d="M10 6v4l2.5 2.5"/></svg><span class="text-xs font-semibold">Activity</span></div>
+          <div class="bnav-item" onclick="openModal('send-modal');resetSend()"><div class="w-11 h-11 rounded-full flex items-center justify-center font-black text-black text-xl -mt-5" style="background:var(--accent)">$</div><span class="text-xs font-semibold mt-1">Pay</span></div>
+          <div class="bnav-item" onclick="mNav('investing')"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="2,16 7,11 12,13 18,5"/><polyline points="14,5 18,5 18,9"/></svg><span class="text-xs font-semibold">Invest</span></div>
+          <div class="bnav-item active" onclick="mNav('settings')"><svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><circle cx="10" cy="7" r="3"/><path d="M10 12c-3.5 0-6 1.8-6 3.5V17h12v-1.5c0-1.7-2.5-3.5-6-3.5z"/></svg><span class="text-xs font-semibold">Profile</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end mobile-wrap -->
+</div><!-- end mobile-layout -->
+
+<!-- ═══════════════════════════════════ JAVASCRIPT ════════════════════════ -->
+<script>
+/* ──────────── DATA ──────────── */
+const contacts = [
+  { id:1, name:'Jordan Lee',  tag:'jordanlee',  initials:'JL', color:'#5865F2' },
+  { id:2, name:'Mia Rose',    tag:'miarose',    initials:'MR', color:'#FF6B9D' },
+  { id:3, name:'Dev Chandra', tag:'devchandra', initials:'DC', color:'#FF9B42' },
+  { id:4, name:'Kai Wu',      tag:'kaiwu',      initials:'KW', color:'#00C247' },
+  { id:5, name:'Sam Rivera',  tag:'samrivera',  initials:'SR', color:'#A855F7' },
+  { id:6, name:'Taylor Kim',  tag:'taylorkim',  initials:'TK', color:'#EC4899' },
+];
+
+const txInit = [
+  { id:1, name:'Jordan Lee',  tag:'$jordanlee', initials:'JL', color:'#5865F2', amount:+45.00,   note:'Dinner split 🍕',      time:'2:14 PM',   isToday:true },
+  { id:2, name:'Netflix',     tag:'Subscription',initials:'N', color:'#E50914', amount:-15.99,   note:'Monthly plan',          time:'12:01 AM',  isToday:true },
+  { id:3, name:'Mia Rose',    tag:'$miarose',   initials:'MR', color:'#FF6B9D', amount:+120.00,  note:'Concert tickets 🎶',    time:'Yesterday', isToday:false },
+  { id:4, name:'Dev Chandra', tag:'$devchandra',initials:'DC', color:'#FF9B42', amount:-30.00,   note:'Coffee + Uber ☕',      time:'Yesterday', isToday:false },
+  { id:5, name:'Kai Wu',      tag:'$kaiwu',     initials:'KW', color:'#00C247', amount:+250.00,  note:'Freelance 💻',          time:'Mon',       isToday:false },
+  { id:6, name:'Sam Rivera',  tag:'$samrivera', initials:'SR', color:'#A855F7', amount:-89.00,   note:'Nike order 👟',         time:'Sun',       isToday:false },
+  { id:7, name:'Employer',    tag:'Direct Dep', initials:'$',  color:'#00D54B', amount:+2100.00, note:'Bi-weekly payroll',     time:'Fri',       isToday:false },
+  { id:8, name:'Apple',       tag:'App Store',  initials:'A',  color:'#555',    amount:-4.99,    note:'iCloud storage',        time:'Thu',       isToday:false },
+];
+
+/* ──────────── STATE ──────────── */
+let balance       = 8742.56;
+let transactions  = [...txInit];
+let balEditOn     = false;
+let darkMode      = false;
+let viewMode      = 'auto'; // 'auto' | 'mobile' | 'desktop'
+
+// Send flow
+let sendAmt = '', reqAmt = '', balAmt = '';
+let sendStep = 0;
+let selectedContact = null;
+
+/* ──────────── FORMAT ──────────── */
+const fmt = n => '$' + Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtBal = n => '$' + n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+
+/* ──────────── TOAST ──────────── */
+let toastTimer;
+function toast(msg, dur=2600) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('up');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.remove('up'), dur);
+}
+
+/* ──────────── MODAL ──────────── */
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+/* ──────────── SUCCESS ──────────── */
+function showSuccess(title, sub) {
+  const el = document.getElementById('success-overlay');
+  document.getElementById('success-title').textContent = title;
+  document.getElementById('success-sub').textContent = sub;
+  el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'), 2200);
+}
+
+/* ──────────── BALANCE ──────────── */
+function updateBalDisplay() {
+  const v = fmtBal(balance);
+  const els = ['d-balance-display','m-balance-display'];
+  els.forEach(id=>{ const e = document.getElementById(id); if(e) e.textContent = v; });
+}
+
+function onBalanceTap() {
+  if (!balEditOn) { toast('⚙ Enable "Custom Balance" in Settings → DEV Mode'); return; }
+  balAmt = '';
+  document.getElementById('b-amt-display').textContent = '0';
+  openModal('bal-modal');
+}
+
+function applyBalance() {
+  const v = parseFloat(balAmt);
+  if (isNaN(v) || v < 0) { toast('Enter a valid amount'); return; }
+  balance = v;
+  updateBalDisplay();
+  closeModal('bal-modal');
+  toast('✓ Balance updated to ' + fmtBal(balance));
+}
+
+/* ──────────── KEYPAD HELPERS ──────────── */
+function kpProcess(cur, k) {
+  if (k==='⌫') return cur.slice(0,-1);
+  if (k==='.' && cur.includes('.')) return cur;
+  if (cur.includes('.') && cur.split('.')[1]?.length >= 2) return cur;
+  if (cur === '0' && k !== '.') return k;
+  return cur + k;
+}
+function skp(k) { sendAmt = kpProcess(sendAmt,k); document.getElementById('s-amt-display').textContent = sendAmt||'0'; }
+function rkp(k) { reqAmt  = kpProcess(reqAmt, k); document.getElementById('r-amt-display').textContent = reqAmt||'0'; }
+function bkp(k) { balAmt  = kpProcess(balAmt, k); document.getElementById('b-amt-display').textContent = balAmt||'0'; }
+
+/* ──────────── SEND FLOW ──────────── */
+function resetSend() {
+  sendAmt = ''; selectedContact = null; sendStep = 1;
+  document.getElementById('s-amt-display').textContent = '0';
+  document.getElementById('send-note').value = '';
+  document.querySelectorAll('.send-step').forEach(s=>s.classList.remove('active'));
+  document.getElementById('send-step-1').classList.add('active');
+  document.getElementById('next-btn-1').disabled = true;
+  document.getElementById('contact-search').value = '';
+  renderContactsModal(contacts);
+}
+
+function sendStepGo(n) {
+  document.querySelectorAll('.send-step').forEach(s=>s.classList.remove('active'));
+  document.getElementById('send-step-'+n).classList.add('active');
+  if (n===2 && selectedContact) {
+    document.getElementById('step2-to').textContent = selectedContact.name;
+  }
+  if (n===3) {
+    const a = parseFloat(sendAmt);
+    if (!a || a<=0) { toast('Enter an amount'); sendStepGo(2); return; }
+    document.getElementById('confirm-amt').textContent = fmt(a);
+    document.getElementById('confirm-to').textContent = 'to '+selectedContact.name;
+  }
+}
+// Override the global sendStep function used in HTML onclick
+window.sendStep = sendStepGo;
+
+function filterContacts() {
+  const q = document.getElementById('contact-search').value.toLowerCase();
+  const filtered = contacts.filter(c=> c.name.toLowerCase().includes(q) || c.tag.includes(q));
+  renderContactsModal(filtered);
+}
+
+function renderContactsModal(list) {
+  // Chips row (top contacts)
+  document.getElementById('contacts-grid').innerHTML = list.slice(0,5).map(c=>`
+    <div class="contact-chip ${selectedContact?.id===c.id?'selected':''}" onclick="pickContact(${c.id})">
+      <div class="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-sm chip-av" style="background:${c.color}">${c.initials}</div>
+      <span class="text-xs font-semibold whitespace-nowrap" style="color:var(--text)">${c.name.split(' ')[0]}</span>
+    </div>`).join('');
+  // Full list
+  document.getElementById('contacts-list').innerHTML = list.map(c=>`
+    <div onclick="pickContact(${c.id})" class="flex items-center gap-3 px-2 py-2.5 rounded-xl cursor-pointer transition" style="background:${selectedContact?.id===c.id?'var(--surface2)':'transparent'}" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='${selectedContact?.id===c.id?'var(--surface2)':'transparent'}'">
+      <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0" style="background:${c.color}">${c.initials}</div>
+      <div><div class="font-semibold text-sm">${c.name}</div><div class="text-xs font-mono" style="color:var(--muted)">$${c.tag}</div></div>
+      ${selectedContact?.id===c.id?'<svg class="ml-auto" width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="8" fill="#00D54B"/><path d="M5 9l3 3 5-5" stroke="white" stroke-width="1.8" stroke-linecap="round"/></svg>':''}
+    </div>`).join('');
+}
+
+function pickContact(id) {
+  selectedContact = contacts.find(c=>c.id===id);
+  document.getElementById('next-btn-1').disabled = false;
+  renderContactsModal(contacts.filter(c=>{
+    const q = document.getElementById('contact-search').value.toLowerCase();
+    return c.name.toLowerCase().includes(q) || c.tag.includes(q);
+  }));
+}
+
+function executeSend() {
+  const a = parseFloat(sendAmt);
+  if (!a || a<=0) { toast('Enter a valid amount'); return; }
+  if (a > balance) { toast('Insufficient balance'); return; }
+  const to = selectedContact;
+  balance -= a;
+  updateBalDisplay();
+  transactions.unshift({ id: Date.now(), name: to.name, tag:'$'+to.tag, initials: to.initials, color: to.color, amount: -a, note: document.getElementById('send-note').value || 'Payment', time: 'Just now', isToday: true });
+  renderAll();
+  closeModal('send-modal');
+  showSuccess(`$${a.toFixed(2)} Sent!`, `to ${to.name}`);
+}
+
+function executeRequest() {
+  const a = parseFloat(reqAmt);
+  if (!a||a<=0) { toast('Enter an amount'); return; }
+  closeModal('request-modal');
+  reqAmt = '';
+  toast(`✓ Request for ${fmt(a)} sent`);
+}
+
+/* ──────────── TRANSACTIONS ──────────── */
+function txHTML(tx, compact=false) {
+  const pos = tx.amount > 0;
+  const clr = pos ? 'var(--accent)' : 'var(--text)';
+  const sign = pos ? '+' : '-';
+  return `<div class="tx-row">
+    <div class="tx-avatar" style="background:${tx.color}18;color:${tx.color}">${tx.initials}</div>
+    <div style="flex:1;min-width:0">
+      <div class="font-semibold text-sm leading-tight" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${tx.name}</div>
+      <div class="text-xs" style="color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${tx.note}</div>
+    </div>
+    <div class="text-right flex-shrink-0">
+      <div class="font-bold text-sm" style="color:${clr}">${sign}${fmt(tx.amount)}</div>
+      <div class="text-xs" style="color:var(--subtle)">${tx.time}</div>
+    </div>
+  </div>`;
+}
+
+function renderAll() {
+  const all = transactions.map(t=>txHTML(t)).join('');
+  const few = transactions.slice(0,4).map(t=>txHTML(t)).join('');
+  const set = (id,html) => { const e=document.getElementById(id); if(e) e.innerHTML=html; };
+  set('d-tx-list', few);
+  set('d-all-tx-list', all);
+  set('m-tx-preview', few);
+  set('m-all-tx', all);
+  // desktop contacts
+  const dc = document.getElementById('d-contacts');
+  if(dc) dc.innerHTML = contacts.slice(0,4).map(c=>`
+    <div class="flex items-center gap-3 cursor-pointer rounded-xl px-2 py-2 transition" style="color:var(--text)" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''" onclick="openModal('send-modal');resetSend();pickContact(${c.id})">
+      <div class="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0" style="background:${c.color}">${c.initials}</div>
+      <div><div class="font-semibold text-xs">${c.name}</div><div class="text-xs font-mono" style="color:var(--muted)">$${c.tag}</div></div>
+    </div>`).join('');
+}
+
+/* ──────────── DESKTOP NAV ──────────── */
+function dNav(page, el) {
+  document.querySelectorAll('#d-nav .d-nav-item').forEach(i=>i.classList.remove('active'));
+  if(el) el.classList.add('active');
+  document.querySelectorAll('.d-page').forEach(p=>p.classList.add('hidden'));
+  const pg = document.getElementById('d-page-'+page);
+  if(pg) pg.classList.remove('hidden');
+  if(page==='settings') buildSettings();
+}
+
+/* ──────────── MOBILE NAV ──────────── */
+let currentScreen = 'm-home';
+function mNav(screen) {
+  const id = 'm-'+screen;
+  if(id === currentScreen) return;
+  const from = document.getElementById(currentScreen);
+  const to   = document.getElementById(id);
+  if(!to) return;
+  from.classList.add('off-left');
+  to.classList.remove('off-left','off-right');
+  setTimeout(()=>{ from.classList.remove('off-left'); from.classList.add('off-right'); }, 350);
+  currentScreen = id;
+  if(screen==='settings') buildSettings();
+}
+
+/* ──────────── SETTINGS ──────────── */
+function buildSettings() {
+  const html = `
+    <!-- Profile -->
+    <div class="flex items-center gap-4 p-4 rounded-2xl mb-6" style="background:var(--surface2)">
+      <div class="w-14 h-14 rounded-full flex items-center justify-center font-bold text-white text-lg flex-shrink-0" style="background:var(--accent)">AC</div>
+      <div><div class="font-display font-bold text-base" style="color:var(--text)">Alex Carter</div><div class="text-sm font-mono" style="color:var(--muted)">$alexcarter</div></div>
+    </div>
+
+    <!-- Appearance -->
+    <div class="mb-1 text-xs font-bold uppercase tracking-wider px-1" style="color:var(--muted)">Appearance</div>
+    <div class="card mb-4">
+      <div class="flex items-center justify-between px-4 py-3.5" style="border-bottom:1px solid var(--border)">
+        <div><div class="font-semibold text-sm">Dark Mode</div><div class="text-xs" style="color:var(--muted)">Switch to dark theme</div></div>
+        <input type="checkbox" class="toggle" id="s-dark" ${darkMode?'checked':''} onchange="setDark(this.checked)">
+      </div>
+      <!-- View Mode -->
+      <div class="px-4 py-3.5">
+        <div class="font-semibold text-sm mb-2">View Mode</div>
+        <div class="text-xs mb-3" style="color:var(--muted)">Override responsive layout for demo</div>
+        <div class="flex gap-2">
+          <button onclick="setViewMode('auto')" class="flex-1 py-2.5 rounded-xl text-xs font-bold transition" style="background:${viewMode==='auto'?'var(--accent)':'var(--surface2)'};color:${viewMode==='auto'?'black':'var(--muted)'}">Auto</button>
+          <button onclick="setViewMode('mobile')" class="flex-1 py-2.5 rounded-xl text-xs font-bold transition" style="background:${viewMode==='mobile'?'var(--accent)':'var(--surface2)'};color:${viewMode==='mobile'?'black':'var(--muted)'}">📱 Mobile</button>
+          <button onclick="setViewMode('desktop')" class="flex-1 py-2.5 rounded-xl text-xs font-bold transition" style="background:${viewMode==='desktop'?'var(--accent)':'var(--surface2)'};color:${viewMode==='desktop'?'black':'var(--muted)'}">🖥 Desktop</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Preferences -->
+    <div class="mb-1 text-xs font-bold uppercase tracking-wider px-1" style="color:var(--muted)">Preferences</div>
+    <div class="card mb-4">
+      ${settingRow('Notifications','Payment & offer alerts','s-notif',true)}
+      ${settingRow('Face ID / Touch ID','Secure your account','s-faceid',true)}
+      ${settingRow('Direct Deposit','Get paid up to 2 days early','s-dd',false)}
+      ${settingRow('Auto Invest','Round-up spending to invest','s-invest',false)}
+    </div>
+
+    <!-- DEV MODE -->
+    <div class="mb-1 text-xs font-bold uppercase tracking-wider px-1" style="color:var(--muted)">Developer</div>
+    <div class="rounded-2xl mb-4 overflow-hidden" style="border:2px dashed var(--border)">
+      <div class="px-4 py-3.5">
+        <div class="flex items-center gap-2 mb-1"><span class="text-xs font-mono px-2 py-0.5 rounded font-bold" style="background:rgba(0,213,75,.12);color:var(--accent)">DEV</span><span class="font-bold text-sm">Custom Balance Mode</span></div>
+        <p class="text-xs mb-3" style="color:var(--muted)">Tap your balance to set any amount. Demo use only.</p>
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-mono" style="color:var(--subtle)">balance_edit_enabled</span>
+          <input type="checkbox" class="toggle" id="s-bal-edit" ${balEditOn?'checked':''} onchange="toggleBalEdit(this.checked)">
+        </div>
+      </div>
+    </div>
+
+    <!-- About -->
+    <div class="card p-4 text-center">
+      <div class="font-display font-black text-base mb-0.5" style="color:var(--accent)">MoneyBaseStat</div>
+      <div class="text-xs" style="color:var(--muted)">Version 2.0.0 · Demo App · All data is fake</div>
+    </div>
+  `;
+  ['settings-content','m-settings-content'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.innerHTML = html;
+  });
+}
+
+function settingRow(label, sub, id, checked) {
+  return `<div class="flex items-center justify-between px-4 py-3.5" style="border-bottom:1px solid var(--border)">
+    <div><div class="font-semibold text-sm">${label}</div><div class="text-xs" style="color:var(--muted)">${sub}</div></div>
+    <input type="checkbox" class="toggle" id="${id}" ${checked?'checked':''}>
+  </div>`;
+}
+
+function setDark(on) {
+  darkMode = on;
+  document.body.classList.toggle('theme-dark', on);
+  buildSettings();
+}
+
+function setViewMode(mode) {
+  viewMode = mode;
+  document.body.classList.remove('force-mobile','force-desktop');
+  if(mode==='mobile') document.body.classList.add('force-mobile');
+  if(mode==='desktop') document.body.classList.add('force-desktop');
+  buildSettings();
+  toast(mode==='auto'?'Auto layout restored':`${mode==='mobile'?'📱':'🖥'} ${mode.charAt(0).toUpperCase()+mode.slice(1)} view applied`);
+}
+
+function toggleBalEdit(on) {
+  balEditOn = on;
+  const hint = document.getElementById('m-edit-hint');
+  const badge = document.getElementById('d-edit-badge');
+  if(on) {
+    if(hint) hint.textContent = '✏️ Tap to edit balance';
+    if(badge) badge.classList.remove('hidden');
+    toast('🛠 Balance editing enabled');
+  } else {
+    if(hint) hint.textContent = '';
+    if(badge) badge.classList.add('hidden');
+  }
+  buildSettings();
+}
+
+/* ──────────── CARD ──────────── */
+let cvvVisible = false;
+const realCVV = '483';
+
+function setCardTheme(theme) {
+  const c = document.getElementById('card-preview');
+  c.className = `debit-card card-theme-${theme}`;
+  document.querySelectorAll('.card-color-opt').forEach(b=>{
+    b.classList.toggle('active', b.dataset.theme===theme);
+  });
+}
+
+function toggleCVV() {
+  cvvVisible = !cvvVisible;
+  document.getElementById('card-cvv-display').textContent = cvvVisible ? realCVV : '•••';
+  document.querySelector('[onclick="toggleCVV()"]').textContent = cvvVisible ? 'Hide' : 'Show';
+}
+
+function applyCardName() {
+  const v = document.getElementById('card-name-input').value.toUpperCase().trim();
+  if(!v) return;
+  document.getElementById('card-name-display').textContent = v;
+  toast('✓ Card name updated');
+}
+
+/* ──────────── INIT ──────────── */
+document.querySelectorAll('.card-color-opt').forEach(b=>{
+  b.setAttribute('data-theme', b.getAttribute('onclick').match(/'(\w+)'/)[1]);
+});
+
+renderAll();
+resetSend();
+updateBalDisplay();
+</script>
+</body>
+</html>
